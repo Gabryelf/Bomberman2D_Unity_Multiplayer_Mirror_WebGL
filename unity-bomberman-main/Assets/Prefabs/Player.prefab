@@ -1464,6 +1464,8 @@ MonoBehaviour:
   - {fileID: 2498154491247974643}
   - {fileID: 649074724597940640}
   - {fileID: 7813129299923385579}
+  score: 0
+  flyTextPrefab: {fileID: 2997782624980956609, guid: 52096bba174cee64faeed79884322121, type: 3}
 --- !u!114 &5879614341149993121
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1490,6 +1492,7 @@ MonoBehaviour:
   explosionDuration: 1
   explosionRadius: 1
   destructiblePrefab: {fileID: -8738203639632321532, guid: 1ac7a5f8ae90ed04aa34c0753307c241, type: 3}
+  wallDestructionPoints: 100
 --- !u!114 &3226176009922622653
 MonoBehaviour:
   m_ObjectHideFlags: 0

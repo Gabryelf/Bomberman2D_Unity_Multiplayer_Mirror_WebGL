@@ -1,8 +1,8 @@
 using System.Collections;
 using UnityEngine;
-using Mirror;
 using UnityEngine.UI;
 using UnityEngine.Tilemaps;
+using Mirror;
 
 public class BombController : NetworkBehaviour
 {
@@ -22,6 +22,7 @@ public class BombController : NetworkBehaviour
     [Header("Destructible")]
     private Tilemap destructibleTiles;
     public Destructible destructiblePrefab;
+    public int wallDestructionPoints = 100; // Очки за разрушение стены
 
     [Header("UI")]
     private Image cooldownImage;
@@ -29,7 +30,10 @@ public class BombController : NetworkBehaviour
     private void Start()
     {
         destructibleTiles = FindObjectOfType<Tilemap>();
-        cooldownImage = GameObject.FindWithTag("CooldownImage").GetComponent<Image>();
+        if (isLocalPlayer)
+        {
+            cooldownImage = GameObject.FindWithTag("CooldownImage").GetComponent<Image>();
+        }
     }
 
     private void Update()
@@ -51,36 +55,38 @@ public class BombController : NetworkBehaviour
     [Command]
     private void CmdPlaceBomb()
     {
-        if (!isServer)
-        {
-            Debug.LogWarning("CmdPlaceBomb called, but not running on server.");
-            return;
-        }
+        PlaceBombServer();
+    }
 
-        Vector2 position = transform.position;
-        position.x = Mathf.Round(position.x);
-        position.y = Mathf.Round(position.y);
+    /// <summary>
+    /// Метод для размещения бомбы на сервере, который может вызываться ботами.
+    /// </summary>
+    public void ServerPlaceBomb()
+    {
+        if (!isServer) return;
+        PlaceBombServer();
+    }
 
-        GameObject bomb = Instantiate(bombPrefab, position, Quaternion.identity);
+    private void PlaceBombServer()
+    {
+        Vector3Int cellPosition = destructibleTiles.WorldToCell(transform.position);
+        Vector3 bombPosition = destructibleTiles.GetCellCenterWorld(cellPosition);
+
+        GameObject bomb = Instantiate(bombPrefab, bombPosition, Quaternion.identity);
         if (bomb == null)
         {
             Debug.LogError("Bomb prefab instantiation failed.");
             return;
         }
 
-        Debug.Log("Bomb instantiated and spawned on the server.");
         NetworkServer.Spawn(bomb);
-
         bombCooldownRemaining = bombCooldownTime;
-        StartCoroutine(BombTimer(bomb, position));
+        StartCoroutine(BombTimer(bomb, bombPosition));
     }
-
-
 
     private IEnumerator BombTimer(GameObject bomb, Vector2 position)
     {
         yield return new WaitForSeconds(bombFuseTime);
-
         RpcExplode(position);
         Destroy(bomb);
     }
@@ -101,16 +107,23 @@ public class BombController : NetworkBehaviour
 
     private void ExplodeInDirection(Vector2 position, Vector2 direction)
     {
-        position += direction;
-
-        if (Physics2D.OverlapBox(position, Vector2.one / 2f, 0f, explosionLayerMask))
+        for (int i = 1; i <= explosionRadius; i++)
         {
-            ClearDestructible(position);
-            return;
-        }
+            Vector2 currentPosition = position + direction * i;
 
-        Explosion explosion = Instantiate(explosionPrefab, position, Quaternion.identity);
-        explosion.DestroyAfter(explosionDuration);
+            if (Physics2D.OverlapBox(currentPosition, Vector2.one / 2f, 0f, explosionLayerMask))
+            {
+                
+                ClearDestructible(currentPosition);
+                Explosion explosion = Instantiate(explosionPrefab, currentPosition, Quaternion.identity);
+                explosion.DestroyAfter(explosionDuration);
+
+                //break;
+            }
+
+            
+        }
+        
     }
 
     private void ClearDestructible(Vector2 position)
@@ -141,13 +154,29 @@ public class BombController : NetworkBehaviour
     private void RpcInstantiateDestructible(Vector2 position)
     {
         Instantiate(destructiblePrefab, position, Quaternion.identity);
+        MovementController player = GetComponentInParent<MovementController>();
+        if (player != null)
+        {
+            player.CmdAddScore(wallDestructionPoints);
+        }
+    }
+
+    public bool CanPlaceBomb()
+    {
+        return bombCooldownRemaining <= 0f;
     }
 
     public void AddBomb()
     {
-        // Убираем добавление новых бомб, так как они теперь имеют перезарядку
+        bombCooldownTime -= 0.1f;
+        bombFuseTime -= 0.1f;
     }
 }
+
+
+
+
+
 
 
 

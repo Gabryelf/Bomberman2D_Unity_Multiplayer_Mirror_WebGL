@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using System.Collections.Generic;
+using System.Collections;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class MovementController : NetworkBehaviour
@@ -25,7 +26,17 @@ public class MovementController : NetworkBehaviour
     public List<AnimatedSpriteRenderer> spriteRenderersRight;
     public List<AnimatedSpriteRenderer> spriteRenderersDeath;
 
+    [SyncVar]
+    public int score = 0; // Очки игрока
+
+    [Header("Fly Text Settings")]
+    public GameObject flyTextPrefab; // Префаб для отображения начисленных очков
+    private Transform scoreTextTarget;
+    // Цель, куда должен двигаться flyTextPrefab
+
     private AnimatedSpriteRenderer activeSpriteRenderer;
+    private BonusManager bm;
+   
 
     [SyncVar]
     private int playerNumber = -1;
@@ -35,6 +46,17 @@ public class MovementController : NetworkBehaviour
     private void Awake()
     {
         rigidbody = GetComponent<Rigidbody2D>();
+
+        GameObject targetObject = GameObject.Find("ScoreTextTarget");
+
+        if (targetObject != null)
+        {
+            scoreTextTarget = targetObject.transform;
+        }
+        else
+        {
+            Debug.LogError("ScoreTextTarget not found in the scene!");
+        }
     }
 
     public override void OnStartServer()
@@ -56,6 +78,7 @@ public class MovementController : NetworkBehaviour
 
     private void Update()
     {
+        
         if (!isLocalPlayer || !isMovementEnabled) return;
 
         HandleInput();
@@ -65,9 +88,49 @@ public class MovementController : NetworkBehaviour
     {
         Vector2 position = rigidbody.position;
         Vector2 translation = direction * speed * Time.fixedDeltaTime;
-
+       
         rigidbody.MovePosition(position + translation);
     }
+
+    [Command]
+    public void CmdAddScore(int points)
+    {
+        score += points;
+        BonusManager.Instance.UpdateScoreUI();
+        RpcDisplayFlyText(points);
+        Debug.Log($"Player {playerNumber} scored {points} points. Total Score: {score}");
+    }
+
+    // Отображение flyTextPrefab на клиенте
+    [ClientRpc]
+    private void RpcDisplayFlyText(int points)
+    {
+        if (flyTextPrefab != null && scoreTextTarget != null)
+        {
+            GameObject flyText = Instantiate(flyTextPrefab, transform.position, Quaternion.identity);
+            flyText.GetComponent<TextMesh>().text = $"+{points}";
+
+            StartCoroutine(MoveFlyTextToTarget(flyText));
+        }
+    }
+
+    private IEnumerator MoveFlyTextToTarget(GameObject flyText)
+    {
+        float duration = 1f;
+        float elapsed = 0f;
+        Vector3 startPosition = flyText.transform.position;
+        Vector3 targetPosition = scoreTextTarget.position;
+
+        while (elapsed < duration)
+        {
+            flyText.transform.position = Vector3.Lerp(startPosition, targetPosition, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        Destroy(flyText);
+    }
+
 
     private void HandleInput()
     {

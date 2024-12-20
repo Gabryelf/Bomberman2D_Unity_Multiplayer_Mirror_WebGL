@@ -17,14 +17,17 @@ public class ItemPickup : MonoBehaviour
         {
             case ItemType.ExtraBomb:
                 player.GetComponent<BombController>().AddBomb();
+                BonusManager.Instance.AddExtraBomb();
                 break;
 
             case ItemType.BlastRadius:
                 player.GetComponent<BombController>().explosionRadius++;
+                BonusManager.Instance.AddBlastRadius();
                 break;
 
             case ItemType.SpeedIncrease:
                 player.GetComponent<MovementController>().speed++;
+                BonusManager.Instance.AddSpeedIncrease();
                 break;
         }
 
@@ -33,9 +36,10 @@ public class ItemPickup : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Player")) {
+        if (other.CompareTag("Player"))
+        {
             OnItemPickup(other.gameObject);
         }
     }
-
 }
+

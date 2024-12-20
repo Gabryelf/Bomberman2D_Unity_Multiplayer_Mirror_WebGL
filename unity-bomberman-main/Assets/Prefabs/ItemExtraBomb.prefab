@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 7219926532844664602}
   m_Layer: 9
   m_Name: ItemExtraBomb
-  m_TagString: Untagged
+  m_TagString: Bonus
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

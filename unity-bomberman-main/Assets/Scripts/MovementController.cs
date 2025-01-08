@@ -36,12 +36,14 @@ public class MovementController : NetworkBehaviour
 
     private AnimatedSpriteRenderer activeSpriteRenderer;
     private BonusManager bm;
-   
+    private Transform respawnPoint;
+
 
     [SyncVar]
     private int playerNumber = -1;
 
     private bool isMovementEnabled = false;
+    private Transform initialSpawnPoint;
 
     private void Awake()
     {
@@ -62,23 +64,36 @@ public class MovementController : NetworkBehaviour
     public override void OnStartServer()
     {
         playerNumber = GetNextPlayerNumber();
+        AdjustScaleForOrientation();
+    }
+
+    private void AdjustScaleForOrientation()
+    {
+        float scaleFactor = DynamicReferenceResolution.ScaleFactor;
+        transform.localScale = Vector3.one * scaleFactor;
     }
 
     public override void OnStartClient()
     {
         DisableAllSkins();
-        ActivateSkin(playerNumber);
 
-        CharacterSelectionManager selectionManager = FindObjectOfType<CharacterSelectionManager>();
-        
+        // Сохраняем начальную точку респавна
+        if (isLocalPlayer && respawnPoint == null)
+        {
+            respawnPoint = new GameObject($"{name}_RespawnPoint").transform;
+            respawnPoint.position = transform.position;
+            Debug.Log($"Точка респавна установлена: {respawnPoint.position}");
+        }
+
         int index = playerNumber % spriteRenderersDown.Count;
         activeSpriteRenderer = spriteRenderersDown[index];
         activeSpriteRenderer.enabled = true;
     }
 
+
     private void Update()
     {
-        
+
         if (!isLocalPlayer || !isMovementEnabled) return;
 
         HandleInput();
@@ -88,7 +103,7 @@ public class MovementController : NetworkBehaviour
     {
         Vector2 position = rigidbody.position;
         Vector2 translation = direction * speed * Time.fixedDeltaTime;
-       
+
         rigidbody.MovePosition(position + translation);
     }
 
@@ -196,7 +211,11 @@ public class MovementController : NetworkBehaviour
     public void CmdSelectCharacter(int characterIndex)
     {
         playerNumber = characterIndex % skins.Count;
+        Debug.LogError($"{playerNumber}") ;
+
         RpcActivateSkin(playerNumber);
+
+        GameManager.Instance.SetPlayerSkin(characterIndex);
 
         CharacterSelectionManager selectionManager = FindObjectOfType<CharacterSelectionManager>();
         if (selectionManager != null)
@@ -205,6 +224,7 @@ public class MovementController : NetworkBehaviour
         }
 
         CheckAllPlayersSelected();
+        ActivateSkin(playerNumber);
     }
 
     [ClientRpc]
@@ -239,24 +259,36 @@ public class MovementController : NetworkBehaviour
     {
         if (other.gameObject.layer == LayerMask.NameToLayer("Explosion"))
         {
+            GameTimer gameTimer = FindObjectOfType<GameTimer>();
+            gameTimer.AddOpponentScore(100);
             DeathSequence();
         }
     }
 
     private void DeathSequence()
     {
+        // Отключаем управление и спрайты
         enabled = false;
         GetComponent<BombController>().enabled = false;
         DisableAllSprites();
 
+        // Включаем анимацию смерти
         spriteRenderersDeath[playerNumber % spriteRenderersDeath.Count].enabled = true;
+
+        // Запускаем респавн через 1.25 секунды
         Invoke(nameof(OnDeathSequenceEnded), 1.25f);
     }
 
+
     private void OnDeathSequenceEnded()
     {
+        // Деактивируем объект игрока
         gameObject.SetActive(false);
+
+        // Вызываем респавн
+        RpcRespawnPlayer();
     }
+
 
     private int GetNextPlayerNumber()
     {
@@ -267,6 +299,61 @@ public class MovementController : NetworkBehaviour
     {
         isMovementEnabled = true;
     }
+
+    public void SetInitialSpawnPoint(Transform spawnPoint)
+    {
+        initialSpawnPoint = spawnPoint;
+    }
+
+    [ClientRpc]
+    private void RpcRespawnPlayer()
+    {
+        if (!isLocalPlayer)
+            return;
+
+        if (respawnPoint == null)
+        {
+            Debug.LogError("Точка респауна не установлена! Убедитесь, что она задана в OnStartClient.");
+            return;
+        }
+
+        // Перемещаем игрока в точку респауна
+        Debug.Log($"Респаун игрока в точке: {respawnPoint.position}");
+        transform.position = respawnPoint.position;
+
+        // Включаем объект игрока
+        gameObject.SetActive(true);
+
+        // Включаем управление
+        enabled = true;
+        EnablePlayerMovement();
+
+        // Включаем BombController
+        BombController bombController = GetComponent<BombController>();
+        if (bombController != null)
+        {
+            bombController.enabled = true;
+        }
+
+        // Активируем спрайты
+        DisableAllSprites();
+        activeSpriteRenderer.enabled = true;
+    }
+
+    [Server]
+    private void RespawnPlayerOnServer()
+    {
+        transform.position = respawnPoint.position;
+        RpcRespawnPlayer();
+    }
+
+
+    private bool IsBot()
+    {
+        return playerNumber == -1; // или любой другой критерий для определения ботов
+    }
+
+    
 }
 
 

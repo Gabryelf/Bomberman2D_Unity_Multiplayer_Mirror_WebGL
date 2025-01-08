@@ -41,18 +41,24 @@ public class BonusManager : MonoBehaviour
     public void AddExtraBomb()
     {
         extraBombCount++;
+        MovementController player = FindObjectOfType<MovementController>();
+        player.CmdAddScore(bonusPickupPoints);
         UpdateText(extraBombText, " ", extraBombCount);
     }
 
     public void AddBlastRadius()
     {
         blastRadiusCount++;
+        MovementController player = FindObjectOfType<MovementController>();
+        player.CmdAddScore(bonusPickupPoints);
         UpdateText(blastRadiusText, " ", blastRadiusCount);
     }
 
     public void AddSpeedIncrease()
     {
         speedIncreaseCount++;
+        MovementController player = FindObjectOfType<MovementController>();
+        player.CmdAddScore(bonusPickupPoints);
         UpdateText(speedIncreaseText, " ", speedIncreaseCount);
     }
 

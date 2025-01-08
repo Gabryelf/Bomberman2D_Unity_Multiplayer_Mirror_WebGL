@@ -58,9 +58,6 @@ public class BombController : NetworkBehaviour
         PlaceBombServer();
     }
 
-    /// <summary>
-    /// Метод для размещения бомбы на сервере, который может вызываться ботами.
-    /// </summary>
     public void ServerPlaceBomb()
     {
         if (!isServer) return;
@@ -73,6 +70,7 @@ public class BombController : NetworkBehaviour
         Vector3 bombPosition = destructibleTiles.GetCellCenterWorld(cellPosition);
 
         GameObject bomb = Instantiate(bombPrefab, bombPosition, Quaternion.identity);
+        bomb.transform.localScale *= DynamicReferenceResolution.ScaleFactor;
         if (bomb == null)
         {
             Debug.LogError("Bomb prefab instantiation failed.");
@@ -99,32 +97,64 @@ public class BombController : NetworkBehaviour
 
     private void Explode(Vector2 position)
     {
-        ExplodeInDirection(position, Vector2.up);
-        ExplodeInDirection(position, Vector2.down);
-        ExplodeInDirection(position, Vector2.left);
-        ExplodeInDirection(position, Vector2.right);
+        // Взрыв в центральной ячейке
+        CreateExplosion(position);
+
+        // Взрыв в каждом направлении
+        ExplodeInDirection(position, Vector2.up, explosionRadius);
+        ExplodeInDirection(position, Vector2.down, explosionRadius);
+        ExplodeInDirection(position, Vector2.left, explosionRadius);
+        ExplodeInDirection(position, Vector2.right, explosionRadius);
     }
 
-    private void ExplodeInDirection(Vector2 position, Vector2 direction)
+    private void ExplodeInDirection(Vector2 position, Vector2 direction, int length)
     {
-        for (int i = 1; i <= explosionRadius; i++)
+        if (length <= 0) return;
+
+        // Учитываем масштаб при расчёте шага
+        Vector2 fixedStep = new Vector2(1f, 1f); // Настройте под сетку
+        if (DynamicReferenceResolution.ScaleFactor == 0.5f)
         {
-            Vector2 currentPosition = position + direction * i;
+            fixedStep = new Vector2(0.5f, 0.5f); // Масштаб шага для другой сетки
+        }
 
-            if (Physics2D.OverlapBox(currentPosition, Vector2.one / 2f, 0f, explosionLayerMask))
+        Vector2 nextPosition = position + direction * fixedStep;
+
+        // Проверяем столкновение с коллайдером
+        Collider2D hitCollider = Physics2D.OverlapBox(nextPosition, fixedStep, 0f, explosionLayerMask);
+
+        if (hitCollider)
+        {
+            // Проверяем, если объект имеет тег "Ground" и компонент TilemapCollider2D
+            if (hitCollider.CompareTag("Ground") && hitCollider.GetComponent<TilemapCollider2D>() != null)
             {
-                
-                ClearDestructible(currentPosition);
-                Explosion explosion = Instantiate(explosionPrefab, currentPosition, Quaternion.identity);
-                explosion.DestroyAfter(explosionDuration);
-
-                //break;
+                return; // Остановить распространение в этом направлении
             }
 
-            
+            // Очищаем разрушаемый объект
+            ClearDestructible(nextPosition);
         }
-        
+
+        // Создаём взрыв
+        CreateExplosion(nextPosition);
+
+        // Рекурсивный вызов
+        ExplodeInDirection(nextPosition, direction, length - 1);
     }
+
+
+
+    private void CreateExplosion(Vector2 position)
+    {
+        Explosion explosion = Instantiate(explosionPrefab, position, Quaternion.identity);
+
+        // Масштабируем взрыв с учетом разрешения
+        explosion.transform.localScale = Vector3.one * DynamicReferenceResolution.ScaleFactor;
+        explosion.DestroyAfter(explosionDuration);
+    }
+
+
+
 
     private void ClearDestructible(Vector2 position)
     {
@@ -154,8 +184,10 @@ public class BombController : NetworkBehaviour
     private void RpcInstantiateDestructible(Vector2 position)
     {
         Instantiate(destructiblePrefab, position, Quaternion.identity);
+        
+        //destructiblePrefab.transform.localScale *= DynamicReferenceResolution.ScaleFactor;
         MovementController player = GetComponentInParent<MovementController>();
-        if (player != null)
+        if (player != null && isLocalPlayer)
         {
             player.CmdAddScore(wallDestructionPoints);
         }

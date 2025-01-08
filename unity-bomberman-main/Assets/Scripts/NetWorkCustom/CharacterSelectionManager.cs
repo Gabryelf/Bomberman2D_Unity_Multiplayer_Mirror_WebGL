@@ -1,22 +1,31 @@
 using UnityEngine;
 using UnityEngine.UI;
 using Mirror;
-using System;
+using System.Collections;
 
 public class CharacterSelectionManager : NetworkBehaviour
 {
     [Header("UI Elements")]
-    public Button[] characterButtons; // Кнопки для выбора персонажей
-    public Transform[] spawnPoints;   // Точки спавна для игроков и ботов
+    public Button[] characterButtons;
+    public Transform[] spawnPoints;
     [SerializeField] private GameObject botPrefab;
 
-    private bool hasSelected = false; // Флаг, что игрок сделал выбор
+    private bool hasSelected = false;
+    public GameObject timerGame;
+    public GameObject selectionPanel;
+    private int totalPlayers;
+    private int playersReady = 0;
 
     void Start()
     {
+        if (isServer)
+        {
+            totalPlayers = NetworkServer.connections.Count;
+        }
+
         foreach (Button button in characterButtons)
         {
-            button.onClick.AddListener(() => SelectCharacter(Array.IndexOf(characterButtons, button)));
+            button.onClick.AddListener(() => SelectCharacter(System.Array.IndexOf(characterButtons, button)));
         }
     }
 
@@ -24,7 +33,6 @@ public class CharacterSelectionManager : NetworkBehaviour
     {
         if (hasSelected) return;
 
-        // Найти локального игрока
         var player = NetworkClient.localPlayer;
 
         if (player != null)
@@ -35,10 +43,53 @@ public class CharacterSelectionManager : NetworkBehaviour
                 movementController.CmdSelectCharacter(characterIndex);
                 hasSelected = true;
                 DisableAllButtons();
+                CmdPlayerReady();
 
-                // Спавн бота после выбора персонажа
                 SpawnBotOnServer();
+                timerGame.SetActive(true);
+
+                if (totalPlayers <= 1)
+                {
+                    StartCoroutine(HidePanelAfterDelay(2));
+                    StartTimerAfterDelay(2);
+                }
             }
+        }
+    }
+
+    [Command]
+    private void CmdPlayerReady()
+    {
+        playersReady++;
+        RpcUpdatePlayersReady(playersReady);
+        if (playersReady >= totalPlayers)
+        {
+            StartCoroutine(HidePanelAfterDelay(2));
+            StartTimerAfterDelay(2);
+        }
+    }
+
+    [ClientRpc]
+    private void RpcUpdatePlayersReady(int readyCount)
+    {
+        playersReady = readyCount;
+    }
+
+    private IEnumerator HidePanelAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (selectionPanel != null)
+        {
+            selectionPanel.SetActive(false);
+        }
+    }
+
+    private void StartTimerAfterDelay(float delay)
+    {
+        GameTimer gameTimer = FindObjectOfType<GameTimer>();
+        if (gameTimer != null)
+        {
+            StartCoroutine(gameTimer.StartCountdownAfterDelay(delay));
         }
     }
 
@@ -48,33 +99,16 @@ public class CharacterSelectionManager : NetworkBehaviour
         {
             if (botPrefab != null)
             {
-                // Выбираем случайную точку спавна
-                Transform spawnPoint = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
-
-                // Создаём экземпляр бота на сервере
-                Vector3 spawnPosition = new Vector3(spawnPoint.position.x, spawnPoint.position.y, 90);
+                Transform botSpawnPoint = spawnPoints.Length > 1 ? spawnPoints[0] : spawnPoints[1];
+                Vector3 spawnPosition = new Vector3(botSpawnPoint.position.x, botSpawnPoint.position.y, 90);
                 GameObject bot = Instantiate(botPrefab, spawnPosition, Quaternion.identity);
-
-                // Спавним бота по сети
+                bot.transform.localScale *= DynamicReferenceResolution.ScaleFactor;
                 NetworkServer.Spawn(bot);
 
-                // Получаем NetworkIdentity бота
                 NetworkIdentity botNetworkIdentity = bot.GetComponent<NetworkIdentity>();
-
-                // Проверяем, что у бота есть клиент, которому можно назначить права
                 if (botNetworkIdentity != null)
                 {
-                    // Назначаем права серверу или по логике игры
-                    // Здесь это зависит от того, какой клиент должен управлять ботом
-                    // Если это обычный бот, вы можете передать права серверу или самому себе (серверу):
-
-                    // Назначаем права серверу (если бот управляется сервером)
                     botNetworkIdentity.AssignClientAuthority(NetworkServer.localConnection);
-
-                    // Или, если у вас есть определённый клиент, вы можете назначить ему права
-                    // Пример:
-                    // botNetworkIdentity.AssignClientAuthority(connectionToClient);
-
                 }
             }
             else
@@ -84,13 +118,9 @@ public class CharacterSelectionManager : NetworkBehaviour
         }
         else
         {
-            // Если метод вызывается на клиенте, отправляем команду на сервер
             CmdRequestSpawnBot();
         }
     }
-
-
-
 
     [Command]
     void CmdRequestSpawnBot()
@@ -115,6 +145,9 @@ public class CharacterSelectionManager : NetworkBehaviour
         }
     }
 }
+
+
+
 
 
 

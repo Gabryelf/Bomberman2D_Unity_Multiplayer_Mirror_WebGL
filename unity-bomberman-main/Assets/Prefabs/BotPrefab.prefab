@@ -1440,6 +1440,7 @@ MonoBehaviour:
   explosionDuration: 1
   explosionRadius: 1
   destructiblePrefab: {fileID: -8738203639632321532, guid: 1ac7a5f8ae90ed04aa34c0753307c241, type: 3}
+  wallDestructionPoints: 100
 --- !u!114 &3226176009922622653
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1537,7 +1538,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveSpeed: 50
   bombController: {fileID: 5879614341149993121}
-  botBombCooldown: 5
+  safeDistance: 2
+  waitTimeAfterBomb: 2
+  respawnTime: 1
+  respawnPoint: {fileID: 0}
+  skins:
+  - {fileID: 6460526330758675877}
+  - {fileID: 4784255200588630973}
+  - {fileID: 6773505741128523620}
+  - {fileID: 7241208867634529300}
+  spriteRenderersUp:
+  - {fileID: 5879614340254676635}
+  - {fileID: 8724547351283981475}
+  - {fileID: 1129304848389115981}
+  - {fileID: 1628926658483476747}
+  spriteRenderersDown:
+  - {fileID: 5879614340345886142}
+  - {fileID: 5642757280287875237}
+  - {fileID: 3726619708734635579}
+  - {fileID: 5994755928668322125}
+  spriteRenderersLeft:
+  - {fileID: 5879614339651246098}
+  - {fileID: 7856225324579287073}
+  - {fileID: 5489264794433405321}
+  - {fileID: 8433590683819532578}
+  spriteRenderersRight:
+  - {fileID: 5879614341129601275}
+  - {fileID: 6718928969454690896}
+  - {fileID: 614039454039116222}
+  - {fileID: 1744762657567211596}
+  spriteRenderersDeath:
+  - {fileID: 6933967370136482323}
+  - {fileID: 2498154491247974643}
+  - {fileID: 649074724597940640}
+  - {fileID: 7813129299923385579}
+  playerSkinIndex: 0
+  botSkinIndex: 0
 --- !u!1 &6295996245035107908
 GameObject:
   m_ObjectHideFlags: 0

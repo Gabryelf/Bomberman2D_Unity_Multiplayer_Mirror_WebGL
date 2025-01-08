@@ -18,8 +18,15 @@ public class Destructible : MonoBehaviour
         if (spawnableItems.Length > 0 && Random.value < itemSpawnChance)
         {
             int randomIndex = Random.Range(0, spawnableItems.Length);
-            Instantiate(spawnableItems[randomIndex], transform.position, Quaternion.identity);
+            GameObject spawnedItem = Instantiate(spawnableItems[randomIndex], transform.position, Quaternion.identity);
+            AdjustScaleForNewItem(spawnedItem);
         }
     }
 
+    private void AdjustScaleForNewItem(GameObject newItem)
+    {
+        float scaleFactor = DynamicReferenceResolution.ScaleFactor;
+        newItem.transform.localScale = Vector3.one * scaleFactor;
+    }
 }
+

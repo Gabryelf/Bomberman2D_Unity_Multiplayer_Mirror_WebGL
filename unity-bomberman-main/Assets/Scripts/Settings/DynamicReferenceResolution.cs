@@ -9,6 +9,8 @@ public class DynamicReferenceResolution : MonoBehaviour
 
     private CanvasScaler canvasScaler;
 
+    public static float ScaleFactor { get; private set; } = 1f;
+
     private void Awake()
     {
         canvasScaler = GetComponent<CanvasScaler>();
@@ -17,7 +19,6 @@ public class DynamicReferenceResolution : MonoBehaviour
 
     private void Update()
     {
-        // Проверяем изменение ориентации и обновляем разрешение
         UpdateResolution();
     }
 
@@ -27,11 +28,14 @@ public class DynamicReferenceResolution : MonoBehaviour
         {
             // Портретный режим
             canvasScaler.referenceResolution = new Vector2(canvasScaler.referenceResolution.x, portraitYResolution);
+            ScaleFactor = 0.5f; // Уменьшаем масштаб вдвое
         }
         else
         {
             // Альбомный режим
             canvasScaler.referenceResolution = new Vector2(canvasScaler.referenceResolution.x, landscapeYResolution);
+            ScaleFactor = 1f; // Обычный масштаб
         }
     }
 }
+
